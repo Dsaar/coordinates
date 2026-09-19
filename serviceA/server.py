@@ -1,45 +1,61 @@
 from fastapi import FastAPI
 import connector
-#import uvicorn
 
-app = FastAPI()
-BaseUrl = "http://svc-b-cont:8080"
+
+app = FastAPI(title="Service A")
 
 
 @app.get("/")
-async def GetData():
-    print(f"START: Get Data")
-    return await connector.MakeRequest(
-        BaseUrl + "/getAll", 2, "ServiceB-GetAll"
+async def get_data():
+    return await connector.request(
+        f"{connector.SERVICE_B_URL}/getAll",
+        "ServiceB",
+        timeout=2
     )
-
-@app.get("/favicon.ico")
-def favicon():
-    print(f"START: favicon")
-    return "ok"
 
 
 @app.get("/resolve-ip/{ip}")
-async def AddIp(ip: str):
-    print(f"START: Add IP {ip}")
-    ip = connector.ValidateIp(ip)
+async def resolve_ip(ip: str):
+    valid_ip = connector.validate_ip(ip)
+    geo_data = await connector.resolve_ip(valid_ip)
 
-    ResponseDict = await connector.MakeRequest(
-        f"https://free.freeipapi.com/api/v1/json/{ip}", 4, "FreeIpAPI"
+    return await connector.add_ip(geo_data)
+
+
+@app.post("/resolve-ip-list")
+async def resolve_ip_list(ip_list: list[str]):
+    results = []
+
+    for raw_ip in ip_list:
+        try:
+            valid_ip = connector.validate_ip(raw_ip)
+            geo_data = await connector.resolve_ip(valid_ip)
+            stored = await connector.add_ip(geo_data)
+
+            results.append({
+                "ip": valid_ip,
+                "success": True,
+                "result": stored
+            })
+
+        except Exception as error:
+            results.append({
+                "ip": raw_ip,
+                "success": False,
+                "error": str(error)
+            })
+
+    return {
+        "success": True,
+        "results": results
+    }
+
+
+@app.delete("/delete/{iid}")
+async def delete(iid: str):
+    return await connector.request(
+        f"{connector.SERVICE_B_URL}/delete/{iid}",
+        "ServiceB",
+        method="DELETE",
+        timeout=2
     )
-    print(f"free api worked: {connector.FreeIpApiKeyPicker(ResponseDict)}")
-    return await connector.MakeRequest(
-        BaseUrl + "/AddIp", 8, "ServiceB-AddIp", meth='POST',
-        JsonData=connector.FreeIpApiKeyPicker(ResponseDict)
-    )
-
-
-@app.get("/delete/{iid}")
-async def delete(iid):
-    print(f"START: delete {iid}")
-    return await connector.MakeRequest(
-        BaseUrl + f"/delete/{iid}", 2, "ServiceB-Delete", meth='DELETE'
-    )
-
-#if __name__ == "__main__":
-    #uvicorn.run("server:app", host="0.0.0.0", port=8081, workers=1)

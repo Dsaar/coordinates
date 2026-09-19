@@ -1,20 +1,18 @@
 from fastapi import FastAPI
 import connector
 
-app = FastAPI()
+
+app = FastAPI(title="Service C")
 
 
 @app.get("/")
-async def GetData():
-    return {"service": "ServiceC", "status": "ok"}
+async def health():
+    return {
+        "service": "Service C",
+        "status": "ok"
+    }
 
 
 @app.get("/resolve-ip/{ip}")
-async def ResolveIp(ip: str):
-    print(f"START: ServiceC resolve IP {ip}")
-    return await connector.GetIpData(ip)
-
-
-@app.get("/favicon.ico")
-def favicon():
-    return "ok"
+async def resolve_ip(ip: str):
+    return await connector.resolve_ip(ip)

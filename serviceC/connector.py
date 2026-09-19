@@ -2,10 +2,11 @@ import httpx
 from fastapi import HTTPException
 
 
-def FreeIpApiKeyPicker(js):
-    result = {}
+API_URL = "https://free.freeipapi.com/api/v1/json"
 
-    our_keys = {
+
+def select_geo_fields(data: dict) -> dict:
+    fields = {
         "ipAddress",
         "latitude",
         "longitude",
@@ -16,29 +17,35 @@ def FreeIpApiKeyPicker(js):
         "isProxy"
     }
 
-    for key, value in js.items():
-        if key in our_keys:
-            result[key] = value
+    return {
+        key: value
+        for key, value in data.items()
+        if key in fields
+    }
 
-    return result
 
-
-async def GetIpData(ip):
-    url = f"https://free.freeipapi.com/api/v1/json/{ip}"
-
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(url, timeout=4)
-        except httpx.TimeoutException:
-            raise HTTPException(
-                status_code=504,
-                detail="FreeIpAPI timed out"
+async def resolve_ip(ip: str) -> dict:
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{API_URL}/{ip}",
+                timeout=5
             )
+    except httpx.TimeoutException as error:
+        raise HTTPException(
+            status_code=504,
+            detail="Free IP API timed out"
+        ) from error
+    except httpx.HTTPError as error:
+        raise HTTPException(
+            status_code=502,
+            detail="Free IP API unavailable"
+        ) from error
 
     if response.status_code != 200:
         raise HTTPException(
             status_code=502,
-            detail=f"FreeIpAPI failed: {response.status_code}"
+            detail=f"Free IP API returned {response.status_code}"
         )
 
-    return FreeIpApiKeyPicker(response.json())
+    return select_geo_fields(response.json())

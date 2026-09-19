@@ -2,39 +2,37 @@ services:
 
   service-a-container:
     build:
-      context: ./serviceA/
-      dockerfile: Dockerfile
+      context: ./serviceA
     container_name: svc-a-cont
+    environment:
+      SERVICE_B_URL: http://svc-b-cont:8080
+      SERVICE_C_URL: http://svc-c-cont:8080
     networks:
       - my-network
     ports:
       - "8081:8080"
-
+    depends_on:
+      - service-b-container
+      - service-c-container
 
   service-b-container:
     build:
-      context: ./serviceB/
-      dockerfile: Dockerfile
+      context: ./serviceB
     container_name: svc-b-cont
     networks:
       - my-network
     ports:
       - "8082:8080"
 
-
   service-c-container:
     build:
-      context: ./serviceC/
-      dockerfile: Dockerfile
+      context: ./serviceC
     container_name: svc-c-cont
     networks:
       - my-network
     ports:
       - "8083:8080"
 
-
-
 networks:
   my-network:
     driver: bridge
-

@@ -1,41 +1,41 @@
-from uuid import uuid4
 import asyncio
+from uuid import uuid4
+
 
 class IpMemory:
-    data = {} # {euwewuy: geoData1, eriuwyv: geoData2}
-    UsedIps = set() # {10.10.0.4, 1.1.2.2, 30.40.50.60}
-    memLock = asyncio.Lock()
+    def __init__(self):
+        self._data = {}
+        self._used_ips = set()
+        self._lock = asyncio.Lock()
 
-    @classmethod
-    async def aquireTheLock(cls, func, *args):
-        async with cls.memLock:
-            value = await func(*args)
-        return value
+    async def get_all(self):
+        async with self._lock:
+            return dict(self._data)
 
-    @classmethod
-    async def getData(cls):
-        return cls.data
+    async def add(self, record: dict):
+        async with self._lock:
+            ip = record["ipAddress"]
 
-    @classmethod
-    async def lengthofData(cls):
-        return len(cls.data)
-    
-    @classmethod
-    async def doesKeyExist(cls, key):
-        return key in cls.data
+            if ip in self._used_ips:
+                return None
 
-    @classmethod
-    async def doesIpExist(cls, ip):
-        """checks if ip exists in memory and returns boolean"""
-        return ip in cls.UsedIps
+            record_id = str(uuid4())[:8]
 
-    @classmethod
-    async def addIpAndGeoData(cls, requestData):
-        newId = str(uuid4())[:8]
-        cls.data[newId] = requestData
-        cls.UsedIps.add(requestData["ipAddress"])
-        return newId
-    
-    @classmethod
-    async def deleteKeyValuePair(cls, key):
-        del cls.data[key]
+            self._data[record_id] = record
+            self._used_ips.add(ip)
+
+            return record_id
+
+    async def delete(self, record_id: str):
+        async with self._lock:
+            record = self._data.pop(record_id, None)
+
+            if record is None:
+                return False
+
+            self._used_ips.discard(record["ipAddress"])
+            return True
+
+    async def count(self):
+        async with self._lock:
+            return len(self._data)

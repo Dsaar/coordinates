@@ -6,4 +6,4 @@ RUN pip install --no-cache-dir fastapi uvicorn httpx
 
 COPY *.py .
 
-ENTRYPOINT ["uvicorn", "server:app", "--workers", "1", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8080"]
