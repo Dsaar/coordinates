@@ -1,4 +1,5 @@
 import os
+
 import httpx
 from fastapi import HTTPException
 from pydantic import BaseModel, IPvAnyAddress
@@ -21,7 +22,10 @@ class ValidIp(BaseModel):
 
 def validate_ip(ip: str) -> str:
     try:
-        return str(ValidIp(ip=ip).ip)
+        return str(
+            ValidIp(ip=ip).ip
+        )
+
     except Exception as error:
         raise HTTPException(
             status_code=400,
@@ -36,43 +40,69 @@ async def request(
     json_data=None,
     timeout: float = 5
 ):
-    async with httpx.AsyncClient() as client:
-        try:
+    try:
+        async with httpx.AsyncClient() as client:
             response = await client.request(
                 method,
                 url,
                 json=json_data,
                 timeout=timeout
             )
-        except httpx.TimeoutException as error:
-            raise HTTPException(
-                status_code=504,
-                detail=f"{service_name} timed out"
-            ) from error
-        except httpx.HTTPError as error:
-            raise HTTPException(
-                status_code=502,
-                detail=f"{service_name} unavailable"
-            ) from error
 
-    if response.status_code >= 400:
+    except httpx.TimeoutException as error:
+        raise HTTPException(
+            status_code=504,
+            detail=f"{service_name} timed out"
+        ) from error
+
+    except httpx.RequestError as error:
         raise HTTPException(
             status_code=502,
-            detail=f"{service_name} returned {response.status_code}"
+            detail=f"{service_name} unavailable"
+        ) from error
+
+    if response.status_code >= 400:
+        try:
+            detail = response.json().get(
+                "detail"
+            )
+
+        except ValueError:
+            detail = None
+
+        raise HTTPException(
+            status_code=response.status_code,
+            detail=(
+                detail
+                or f"{service_name} returned "
+                   f"{response.status_code}"
+            )
         )
 
-    return response.json()
+    try:
+        return response.json()
+
+    except ValueError as error:
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                f"{service_name} returned "
+                "invalid JSON"
+            )
+        ) from error
 
 
 async def resolve_ip(ip: str):
     return await request(
         f"{SERVICE_C_URL}/resolve-ip/{ip}",
         "ServiceC",
-        timeout=5
+        timeout=12
     )
 
 
-async def add_ip(geo_data: dict):
+async def add_ip(
+    geo_data: dict
+):
     return await request(
         f"{SERVICE_B_URL}/AddIp",
         "ServiceB",

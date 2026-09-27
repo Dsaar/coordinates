@@ -34,7 +34,7 @@ async def resolve_ip_list(ip_list: list[str]):
 
             results.append({
                 "ip": valid_ip,
-                "success": True,
+                "success": stored.get("success", True),
                 "result": stored
             })
 
@@ -46,7 +46,10 @@ async def resolve_ip_list(ip_list: list[str]):
             })
 
     return {
-        "success": True,
+        "success": all(
+            result["success"]
+            for result in results
+        ),
         "results": results
     }
 
